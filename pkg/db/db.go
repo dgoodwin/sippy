@@ -44,12 +44,11 @@ func New(dsn string) (*DB, error) {
 		return nil, err
 	}
 
+	if err := db.AutoMigrate(&v1.TestResult{}); err != nil {
+		return nil, err
+	}
+
 	/*
-
-		if err := db.AutoMigrate(&v1.TestResult{}); err != nil {
-			return nil, err
-		}
-
 		if err := db.AutoMigrate(&bugsv1.Bug{}); err != nil {
 			return nil, err
 		}

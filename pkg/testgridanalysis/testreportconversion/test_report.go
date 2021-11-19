@@ -47,7 +47,7 @@ func PrepareTestReport(
 			err := dbc.DB.Clauses(clause.OnConflict{UpdateAll: true}).Create(&allJobResults[i]).Error
 			if err != nil {
 				// TODO: return err?
-				klog.Fatalf("error loading database job result %s: %v", allJobResults[i].Name, err)
+				klog.Fatalf("error loading job result %s into db: %v", allJobResults[i].Name, err)
 			}
 		}
 	}
@@ -55,6 +55,19 @@ func PrepareTestReport(
 	stats := calculateJobResultStatistics(allJobResults)
 
 	allTestResultsByName := getTestResultsByName(allJobResults)
+	if dbc != nil {
+		klog.Info("loading test results into db")
+		for _, failingTestResult := range allTestResultsByName {
+			// Can't bulk load them all as we hit a postgres limit for the transaction.
+			err := dbc.DB.Clauses(clause.OnConflict{UpdateAll: true}).Create(
+				&failingTestResult.TestResultAcrossAllJobs).Error
+			if err != nil {
+				// TODO: return err?
+				klog.Fatalf("error loading test result %s into db: %v",
+					failingTestResult.TestResultAcrossAllJobs.Name, err)
+			}
+		}
+	}
 
 	standardTestResultFilterFn := StandardTestResultFilter(minRuns, successThreshold)
 	infrequentJobsTestResultFilterFn := StandardTestResultFilter(2, successThreshold)

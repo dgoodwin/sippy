@@ -151,8 +151,11 @@ type FailingTestJobResult struct {
 // TestResult is a reporting type, not an intermediate type.  It represents the complete view of a given test.  It should
 // always have complete data, not partial data.
 type TestResult struct {
-	gorm.Model
-	Name           string  `json:"name"`
+	ID        uint
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	Name           string  `json:"name" gorm:"primaryKey"`
 	Successes      int     `json:"successes"`
 	Failures       int     `json:"failures"`
 	Flakes         int     `json:"flakes"`
@@ -202,8 +205,8 @@ type JobResult struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 
-	Release                                     string         `json:"release" gorm:"varchar(10)"`
 	Name                                        string         `json:"name" gorm:"primaryKey"`
+	Release                                     string         `json:"release" gorm:"varchar(10)"`
 	Variants                                    pq.StringArray `json:"variants" gorm:"type:text[]"`
 	Failures                                    int            `json:"failures"`
 	KnownFailures                               int            `json:"knownFailures"`
