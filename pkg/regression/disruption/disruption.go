@@ -20,7 +20,7 @@ func (rd *RegressionDetector) Scan() error {
 
 	query := rd.BigQueryClient.Query(`SELECT * ` +
 		"FROM `openshift-ci-data-analysis.ci_data.BackendDisruptionPercentilesByDate` " +
-		`WHERE ReportDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
+		`WHERE ReportDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
 			AND JobRuns > 100
 		ORDER BY ReportDate`)
 	/*
@@ -71,7 +71,6 @@ func (rd *RegressionDetector) Scan() error {
 		}
 	*/
 
-	// this nurp works well as it's generally 0 with a couple small spikes up to around 1s:
 	testNURP := nurp{
 		BackendName:  "kube-api-new-connections",
 		Platform:     "aws",
@@ -84,8 +83,6 @@ func (rd *RegressionDetector) Scan() error {
 	}
 	rd.scanForRegressions(nurpResults[testNURP], log.WithField("nurp", testNURP))
 
-	// works poorly, we were high on the start date, picks up no changes up or down, seems very focused on the first
-	// item in your array. could we start on a date where the value was close to the minimum? or average? find a "good" date?
 	testNURP = nurp{
 		BackendName:  "image-registry-new-connections",
 		Platform:     "aws",
@@ -98,7 +95,6 @@ func (rd *RegressionDetector) Scan() error {
 	}
 	rd.scanForRegressions(nurpResults[testNURP], log.WithField("nurp", testNURP))
 
-	// also poor. start date was at 14s, fails to see the drop to <2s, fails to see another increase back to 17, fails to 30 on Jan 26, or a drop back to 22
 	testNURP = nurp{
 		BackendName:  "ingress-to-console-new-connections",
 		Platform:     "azure",
@@ -114,7 +110,31 @@ func (rd *RegressionDetector) Scan() error {
 	return nil
 }
 
+// Devan's custom idea. rather than look got change points in a graph, answer the question, are we currently worse off than we should be.
+// "What we should be" I defined as the average P95 over past month. (bearing in mind each P95 is a 7 day lookback) Then just calculate what %age
+// difference our most recent result is off that average. Idea is this percentage could be published as a metric, and
+// if we're > say 40% worse than the average, for more than a few days, fire an alert.
 func (rd *RegressionDetector) scanForRegressions(nurpResults []disruptionPercentiles, nlog log.FieldLogger) {
+	nlog.Info("scanning nurp for regressions")
+
+	// calculate the average 7 day p95 from everything we were given:
+	var total float64
+	for _, nr := range nurpResults {
+		total += nr.P95
+	}
+	average7DayP95 := total / float64(len(nurpResults))
+
+	mostRecentDeltaPercentage := 100 - (nurpResults[len(nurpResults)-1].P95/average7DayP95)*100
+	nlog.WithFields(log.Fields{
+		"averageP95":  fmt.Sprintf("%.2f", average7DayP95),
+		"latestP95":   fmt.Sprintf("%.2f", nurpResults[len(nurpResults)-1].P95),
+		"latestDelta": fmt.Sprintf("%.2f", mostRecentDeltaPercentage),
+	}).Info("current delta percentage calculated")
+
+}
+
+// this implementation doesn't seem to work well unless your baseline is 0.
+func (rd *RegressionDetector) scanForRegressions2(nurpResults []disruptionPercentiles, nlog log.FieldLogger) {
 
 	nlog.Info("scanning nurp for regressions")
 
