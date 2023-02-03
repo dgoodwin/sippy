@@ -98,25 +98,55 @@ func (rd *RegressionDetector) Scan() error {
 	}
 	rd.scanForRegressions(nurpResults[testNURP], log.WithField("nurp", testNURP))
 
+	// also poor. start date was at 14s, fails to see the drop to <2s, fails to see another increase back to 17, fails to 30 on Jan 26, or a drop back to 22
+	testNURP = nurp{
+		BackendName:  "ingress-to-console-new-connections",
+		Platform:     "azure",
+		Release:      "4.13",
+		FromRelease:  "4.13",
+		Architecture: "amd64",
+		Network:      "ovn",
+		IPMode:       "ipv4",
+		Topology:     "ha",
+	}
+	rd.scanForRegressions(nurpResults[testNURP], log.WithField("nurp", testNURP))
+
 	return nil
 }
 
 func (rd *RegressionDetector) scanForRegressions(nurpResults []disruptionPercentiles, nlog log.FieldLogger) {
+
 	nlog.Info("scanning nurp for regressions")
+
+	// hacky attempt: find the minimum value and the date it occurred, we'll start there as the code seems
+	// to heavily weight the starting day.
+	// Even this doesn't work, the changes picked up are too small still.
+	lowestValSeen := nurpResults[0].P95
+	lowestValIndex := 0
+	for i, nr := range nurpResults {
+		if nr.P95 < lowestValSeen {
+			lowestValIndex = i
+			lowestValSeen = nr.P95
+		}
+	}
+	scanNURPResults := nurpResults[lowestValIndex:]
+	nlog.Infof("lowest value %.2f was seen on %s, scanning %d results", lowestValSeen,
+		nurpResults[lowestValIndex].ReportDate, len(scanNURPResults))
+
 	// We know our results coming in are already sorted by date.
 	// We now need to choose what percentile we're going to look for regressions in. We know P99 is far too
 	// volatile to see real changes. Right now we focus on P95, but this may need to be lowered in future.
 	//
 	// Build up a slice of floats with the percentile we want for analysis:
-	floats := make([]float64, len(nurpResults))
-	for i := range nurpResults {
-		floats[i] = nurpResults[i].P95
+	floats := make([]float64, len(scanNURPResults))
+	for i := range scanNURPResults {
+		floats[i] = scanNURPResults[i].P95
 	}
 
 	// minSegment here looks like it's the number of data points we require to stay high/low to consider it a change
 	// disruption can come and go, so we may not want to use a segment of 1 day as that could be too volatile. we want
 	// to detect disruption going up, and staying there.
-	for _, cp := range changepoint.NonParametric(floats, 2) {
+	for _, cp := range changepoint.NonParametric(floats, 3) {
 
 		changeDateVal := floats[cp]
 		prevDateVal := floats[cp-1]
@@ -124,7 +154,7 @@ func (rd *RegressionDetector) scanForRegressions(nurpResults []disruptionPercent
 		if changeDateVal < prevDateVal {
 			result = fmt.Sprintf("down from %.2f -> %.2f", prevDateVal, changeDateVal)
 		}
-		nlog.WithField("date", nurpResults[cp].ReportDate).Infof("detected change: %s", result)
+		nlog.WithField("date", scanNURPResults[cp].ReportDate).Infof("detected change: %s", result)
 		//key := floats[cp].Period.UTC().Format(formatter)
 		//changepoints = append(changepoints, key)
 	}
