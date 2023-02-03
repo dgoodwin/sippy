@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"github.com/openshift/sippy/pkg/regression/disruption"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -86,6 +87,9 @@ type Options struct {
 	GoogleOAuthClientCredentialFile    string
 	PinnedDateTime                     string
 
+	// Temporary option to quickly test some code talking to bigquery
+	DetectDisruptionRegressions bool
+
 	CreateSnapshot  bool
 	SippyURL        string
 	SnapshotName    string
@@ -107,6 +111,19 @@ func main() {
 	cmd := &cobra.Command{
 		Run: func(cmd *cobra.Command, arguments []string) {
 			opt.Complete()
+
+			if opt.DetectDisruptionRegressions {
+				bigQueryClient, err := bigquery.NewClient(context.Background(), "openshift-gce-devel",
+					option.WithCredentialsFile(opt.GoogleServiceAccountCredentialFile))
+				if err != nil {
+					log.WithError(err).Fatal("CRITICAL error getting BigQuery client which prevents importing prow jobs")
+				}
+				log.Info("created bigquery client")
+
+				_ = disruption.RegressionDetector{BigQueryClient: bigQueryClient}
+
+				log.Fatal("cya")
+			}
 
 			if err := opt.Validate(); err != nil {
 				log.WithError(err).Fatalf("error validation options")
@@ -146,6 +163,9 @@ func main() {
 	flags.StringVar(&opt.DBLogLevel, "db-log-level", defaultDBLogLevel, "gorm database log level (info,warn,error,silent) (default warn)")
 	flags.BoolVar(&opt.LoadTestgrid, "load-testgrid", true, "Fetch job and job run data from testgrid")
 	flags.BoolVar(&opt.LoadOpenShiftCIBigQuery, "load-openshift-ci-bigquery", false, "Load ProwJobs from OpenShift CI BigQuery")
+
+	// TODO: move me to an API
+	flags.BoolVar(&opt.DetectDisruptionRegressions, "disruption-test", opt.DetectDisruptionRegressions, "Temporary, move to an API")
 
 	// Snapshotter setup, should be a sub-command someday:
 	flags.BoolVar(&opt.CreateSnapshot, "create-snapshot", false, "Create snapshots using current sippy overview API json and store in db")
