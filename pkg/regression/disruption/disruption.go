@@ -63,13 +63,11 @@ func (rd *RegressionDetector) Scan() error {
 	log.WithField("results", resultsCtr).Info("done processing disruption percentiles")
 	log.WithField("nurps", len(nurpResults)).Info("sorted into distinct nurps")
 
-	/*
-		for k := range nurpResults {
-			nlog := log.WithField("nurp", k)
-			nlog.Info("scanning for regressions")
-			rd.scanForRegressions(nurpResults[k], nlog)
-		}
-	*/
+	for k := range nurpResults {
+		nlog := log.WithField("nurp", k)
+		nlog.Info("scanning for regressions")
+		rd.scanForRegressions(nurpResults[k], nlog)
+	}
 
 	testNURP := nurp{
 		BackendName:  "kube-api-new-connections",
@@ -125,11 +123,13 @@ func (rd *RegressionDetector) scanForRegressions(nurpResults []disruptionPercent
 	average7DayP95 := total / float64(len(nurpResults))
 
 	mostRecentDeltaPercentage := 100 - (nurpResults[len(nurpResults)-1].P95/average7DayP95)*100
-	nlog.WithFields(log.Fields{
-		"averageP95":  fmt.Sprintf("%.2f", average7DayP95),
-		"latestP95":   fmt.Sprintf("%.2f", nurpResults[len(nurpResults)-1].P95),
-		"latestDelta": fmt.Sprintf("%.2f", mostRecentDeltaPercentage),
-	}).Info("current delta percentage calculated")
+	if mostRecentDeltaPercentage < -40.0 {
+		nlog.WithFields(log.Fields{
+			"averageP95":  fmt.Sprintf("%.2f", average7DayP95),
+			"latestP95":   fmt.Sprintf("%.2f", nurpResults[len(nurpResults)-1].P95),
+			"latestDelta": fmt.Sprintf("%.2f", mostRecentDeltaPercentage),
+		}).Warn("possible disruption regression")
+	}
 
 }
 
