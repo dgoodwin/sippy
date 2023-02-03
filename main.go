@@ -120,9 +120,13 @@ func main() {
 				}
 				log.Info("created bigquery client")
 
-				_ = disruption.RegressionDetector{BigQueryClient: bigQueryClient}
+				rd := disruption.RegressionDetector{BigQueryClient: bigQueryClient}
+				err = rd.Scan()
+				if err != nil {
+					log.WithError(err).Fatal("error scanning for disruption regressions")
+				}
 
-				log.Fatal("cya")
+				return
 			}
 
 			if err := opt.Validate(); err != nil {

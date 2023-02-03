@@ -3,6 +3,7 @@ module github.com/openshift/sippy
 go 1.16
 
 require (
+	cloud.google.com/go v0.105.0 // indirect
 	cloud.google.com/go/bigquery v1.44.0 // indirect
 	cloud.google.com/go/storage v1.27.0
 	github.com/anaskhan96/soup v1.2.5
