@@ -32,4 +32,5 @@ require (
 	gorm.io/driver/postgres v1.2.1
 	gorm.io/gorm v1.22.2
 	k8s.io/klog v1.0.0
+	pgregory.net/changepoint v1.0.0 // indirect
 )

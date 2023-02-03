@@ -7,6 +7,7 @@ import (
 	"cloud.google.com/go/civil"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/api/iterator"
+	"pgregory.net/changepoint"
 )
 
 type RegressionDetector struct {
@@ -61,7 +62,48 @@ func (rd *RegressionDetector) Scan() error {
 	}
 	log.WithField("results", resultsCtr).Info("done processing disruption percentiles")
 	log.WithField("nurps", len(nurpResults)).Info("sorted into distinct nurps")
+
+	for k := range nurpResults {
+		nlog := log.WithField("nurp", k)
+		nlog.Info("scanning for regressions")
+		rd.scanForRegressions(nurpResults[k], nlog)
+	}
+
+	log.Info("trying for a specific nurp that looks easy")
+	rd.scanForRegressions(nurpResults[nurp{
+		BackendName:  "kube-api-new-connections",
+		Platform:     "vsphere",
+		Release:      "4.13",
+		FromRelease:  "",
+		Architecture: "amd64",
+		Network:      "ovn",
+		IPMode:       "ipv4",
+		Topology:     "ha",
+	}], log.WithField("foo", "bar"))
+
 	return nil
+}
+
+func (rd *RegressionDetector) scanForRegressions(nurpResults []disruptionPercentiles, nlog log.FieldLogger) {
+	// We know our results coming in are already sorted by date.
+	// We now need to choose what percentile we're going to look for regressions in. We know P99 is far too
+	// volatile to see real changes. Right now we focus on P95, but this may need to be lowered in future.
+	//
+	// Build up a slice of floats with the percentile we want for analysis:
+	floats := make([]float64, len(nurpResults))
+	for i := range nurpResults {
+		floats[i] = nurpResults[i].P95
+	}
+
+	// Determine changepoints for this job, i.e., determine when a job
+	// broke (or was fixed).
+	//changepoints := make([]string, 0)
+	for _, cp := range changepoint.NonParametric(floats, 1) {
+
+		nlog.WithField("date", nurpResults[cp].ReportDate).Info("detected change")
+		//key := floats[cp].Period.UTC().Format(formatter)
+		//changepoints = append(changepoints, key)
+	}
 }
 
 type nurp struct {
