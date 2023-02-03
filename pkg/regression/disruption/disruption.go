@@ -2,6 +2,7 @@ package disruption
 
 import (
 	"context"
+	"fmt"
 
 	"cloud.google.com/go/bigquery"
 	"cloud.google.com/go/civil"
@@ -19,10 +20,9 @@ func (rd *RegressionDetector) Scan() error {
 
 	query := rd.BigQueryClient.Query(`SELECT * ` +
 		"FROM `openshift-ci-data-analysis.ci_data.BackendDisruptionPercentilesByDate` " +
-		`WHERE ReportDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)
+		`WHERE ReportDate >= DATE_SUB(CURRENT_DATE(), INTERVAL 60 DAY)
 			AND JobRuns > 100
 		ORDER BY ReportDate`)
-	// TODO: limit to a certain number of JobRuns?
 	/*
 		query.Parameters = []bigquery.QueryParameter{
 			{
@@ -63,28 +63,46 @@ func (rd *RegressionDetector) Scan() error {
 	log.WithField("results", resultsCtr).Info("done processing disruption percentiles")
 	log.WithField("nurps", len(nurpResults)).Info("sorted into distinct nurps")
 
-	for k := range nurpResults {
-		nlog := log.WithField("nurp", k)
-		nlog.Info("scanning for regressions")
-		rd.scanForRegressions(nurpResults[k], nlog)
-	}
+	/*
+		for k := range nurpResults {
+			nlog := log.WithField("nurp", k)
+			nlog.Info("scanning for regressions")
+			rd.scanForRegressions(nurpResults[k], nlog)
+		}
+	*/
 
-	log.Info("trying for a specific nurp that looks easy")
-	rd.scanForRegressions(nurpResults[nurp{
+	// this nurp works well as it's generally 0 with a couple small spikes up to around 1s:
+	testNURP := nurp{
 		BackendName:  "kube-api-new-connections",
-		Platform:     "vsphere",
+		Platform:     "aws",
 		Release:      "4.13",
-		FromRelease:  "",
+		FromRelease:  "4.13",
 		Architecture: "amd64",
 		Network:      "ovn",
 		IPMode:       "ipv4",
 		Topology:     "ha",
-	}], log.WithField("foo", "bar"))
+	}
+	rd.scanForRegressions(nurpResults[testNURP], log.WithField("nurp", testNURP))
+
+	// works poorly, we were high on the start date, picks up no changes up or down, seems very focused on the first
+	// item in your array. could we start on a date where the value was close to the minimum? or average? find a "good" date?
+	testNURP = nurp{
+		BackendName:  "image-registry-new-connections",
+		Platform:     "aws",
+		Release:      "4.13",
+		FromRelease:  "4.13",
+		Architecture: "amd64",
+		Network:      "ovn",
+		IPMode:       "ipv4",
+		Topology:     "ha",
+	}
+	rd.scanForRegressions(nurpResults[testNURP], log.WithField("nurp", testNURP))
 
 	return nil
 }
 
 func (rd *RegressionDetector) scanForRegressions(nurpResults []disruptionPercentiles, nlog log.FieldLogger) {
+	nlog.Info("scanning nurp for regressions")
 	// We know our results coming in are already sorted by date.
 	// We now need to choose what percentile we're going to look for regressions in. We know P99 is far too
 	// volatile to see real changes. Right now we focus on P95, but this may need to be lowered in future.
@@ -95,12 +113,18 @@ func (rd *RegressionDetector) scanForRegressions(nurpResults []disruptionPercent
 		floats[i] = nurpResults[i].P95
 	}
 
-	// Determine changepoints for this job, i.e., determine when a job
-	// broke (or was fixed).
-	//changepoints := make([]string, 0)
-	for _, cp := range changepoint.NonParametric(floats, 1) {
+	// minSegment here looks like it's the number of data points we require to stay high/low to consider it a change
+	// disruption can come and go, so we may not want to use a segment of 1 day as that could be too volatile. we want
+	// to detect disruption going up, and staying there.
+	for _, cp := range changepoint.NonParametric(floats, 2) {
 
-		nlog.WithField("date", nurpResults[cp].ReportDate).Info("detected change")
+		changeDateVal := floats[cp]
+		prevDateVal := floats[cp-1]
+		result := fmt.Sprintf("up from %.2f -> %.2f", prevDateVal, changeDateVal)
+		if changeDateVal < prevDateVal {
+			result = fmt.Sprintf("down from %.2f -> %.2f", prevDateVal, changeDateVal)
+		}
+		nlog.WithField("date", nurpResults[cp].ReportDate).Infof("detected change: %s", result)
 		//key := floats[cp].Period.UTC().Format(formatter)
 		//changepoints = append(changepoints, key)
 	}
