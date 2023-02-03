@@ -37,6 +37,7 @@ func (rd *RegressionDetector) Scan() error {
 	}
 
 	//prowJobs := []prow.ProwJob{}
+	nurpResults := map[nurp][]disruptionPercentiles{}
 	resultsCtr := 0
 	for {
 		p := disruptionPercentiles{}
@@ -50,16 +51,20 @@ func (rd *RegressionDetector) Scan() error {
 		}
 		resultsCtr++
 
-		log.Infof("got percentile: %+v", p)
+		// sort into slices by nurp, we already know we're receiving results in order by date
+		// due to our query
+		if _, ok := nurpResults[p.nurp]; !ok {
+			nurpResults[p.nurp] = []disruptionPercentiles{}
+		}
+		nurpResults[p.nurp] = append(nurpResults[p.nurp], p)
 
 	}
 	log.WithField("results", resultsCtr).Info("done processing disruption percentiles")
+	log.WithField("nurps", len(nurpResults)).Info("sorted into distinct nurps")
 	return nil
 }
 
-// disruptionPercentiles is a transient struct for processing results from the bigquery table.
-type disruptionPercentiles struct {
-	ReportDate   civil.Date
+type nurp struct {
 	BackendName  string
 	Platform     string
 	Release      string
@@ -68,11 +73,17 @@ type disruptionPercentiles struct {
 	Network      string
 	IPMode       string
 	Topology     string
-	JobRuns      int
-	P50          float64
-	P75          float64
-	P95          float64
-	P99          float64
+}
+
+// disruptionPercentiles is a transient struct for processing results from the bigquery table.
+type disruptionPercentiles struct {
+	nurp
+	ReportDate civil.Date
+	JobRuns    int
+	P50        float64
+	P75        float64
+	P95        float64
+	P99        float64
 
 	//PRRepo         bigquery.NullString `bigquery:"repo"`
 }
