@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	logcliclient "github.com/grafana/loki/pkg/logcli/client"
 	"github.com/openshift/sippy/pkg/api"
 	apitype "github.com/openshift/sippy/pkg/apis/api"
 	"github.com/openshift/sippy/pkg/db"
@@ -28,7 +29,22 @@ func JobRunIntervals(gcsClient *storage.Client, dbc *db.DB, jobRunID int64, logg
 		return nil, err
 	}
 
-	return fetchIntervalsFromGCS(gcsClient, jobRun, logger)
+	// First, try to pull from Loki if we can:
+	intervals, err := fetchIntervalsFromLoki(gcsClient, jobRun, logger)
+	if err != nil {
+		// Fallback to GCS if loki fails:
+		logger.Warn("failed to pull intervals from loki, falling back to GCS")
+		// TODO: unclear if we keep this long term, we plan to build filtering around use of LogQL,
+		// perhaps we remove this fallback, sippy only works with loki (30 day limit), but we leave some
+		// of the generated html job artifacts that will always work forever.
+		intervals, err = fetchIntervalsFromGCS(gcsClient, jobRun, logger)
+	}
+	return intervals, err
+}
+
+func fetchIntervalsFromLoki(gcsClient *storage.Client, jobRun *models.ProwJobRun, logger *log.Entry) (*apitype.EventIntervalList, error) {
+	_ = logcliclient.DefaultClient{}
+	return nil, nil
 }
 
 func fetchIntervalsFromGCS(gcsClient *storage.Client, jobRun *models.ProwJobRun, logger *log.Entry) (*apitype.EventIntervalList, error) {
