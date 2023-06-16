@@ -3,16 +3,20 @@ package jobrunintervals
 import (
 	"context"
 	"encoding/json"
+	"os"
 	"regexp"
 	"strings"
+	"time"
 
 	"cloud.google.com/go/storage"
 	logcliclient "github.com/grafana/loki/pkg/logcli/client"
+	"github.com/grafana/loki/pkg/logproto"
 	"github.com/openshift/sippy/pkg/api"
 	apitype "github.com/openshift/sippy/pkg/apis/api"
 	"github.com/openshift/sippy/pkg/db"
 	"github.com/openshift/sippy/pkg/db/models"
 	"github.com/openshift/sippy/pkg/prowloader/gcs"
+	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -30,7 +34,7 @@ func JobRunIntervals(gcsClient *storage.Client, dbc *db.DB, jobRunID int64, logg
 	}
 
 	// First, try to pull from Loki if we can:
-	intervals, err := fetchIntervalsFromLoki(gcsClient, jobRun, logger)
+	intervals, err := fetchIntervalsFromLoki(jobRun, logger)
 	if err != nil {
 		// Fallback to GCS if loki fails:
 		logger.Warn("failed to pull intervals from loki, falling back to GCS")
@@ -42,8 +46,23 @@ func JobRunIntervals(gcsClient *storage.Client, dbc *db.DB, jobRunID int64, logg
 	return intervals, err
 }
 
-func fetchIntervalsFromLoki(gcsClient *storage.Client, jobRun *models.ProwJobRun, logger *log.Entry) (*apitype.EventIntervalList, error) {
-	_ = logcliclient.DefaultClient{}
+func fetchIntervalsFromLoki(jobRun *models.ProwJobRun, logger *log.Entry) (*apitype.EventIntervalList, error) {
+	lc := logcliclient.DefaultClient{
+		Address:     os.Getenv("LOKI_ADDR"),
+		BearerToken: os.Getenv("LOKI_BEARER_TOKEN"),
+		Retries:     3,
+	}
+	logger.Info("created loki client")
+	results, err := lc.QueryRange("{type=\"origin-interval\"}", 100,
+		time.Now().Add(-60*time.Minute),
+		time.Now().Add(-30*time.Minute),
+		logproto.FORWARD,
+		0, 0, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "error from loki logql query")
+	}
+	logger.Infof("Got results: %+v", results)
+
 	return nil, nil
 }
 
