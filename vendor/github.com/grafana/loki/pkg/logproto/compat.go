@@ -295,21 +295,68 @@ func (m *IndexStatsRequest) GetCachingOptions() (res definitions.CachingOptions)
 
 // WithStartEnd clone the current request with different start and end timestamp.
 func (m *IndexStatsRequest) WithStartEnd(startTime int64, endTime int64) definitions.Request {
-	new := *m
-	new.From = model.TimeFromUnixNano(startTime * int64(time.Millisecond))
-	new.Through = model.TimeFromUnixNano(endTime * int64(time.Millisecond))
-	return &new
+	clone := *m
+	clone.From = model.TimeFromUnixNano(startTime * int64(time.Millisecond))
+	clone.Through = model.TimeFromUnixNano(endTime * int64(time.Millisecond))
+	return &clone
 }
 
 // WithQuery clone the current request with a different query.
 func (m *IndexStatsRequest) WithQuery(query string) definitions.Request {
-	new := *m
-	new.Matchers = query
-	return &new
+	clone := *m
+	clone.Matchers = query
+	return &clone
 }
 
 // LogToSpan writes information about this request to an OpenTracing span
 func (m *IndexStatsRequest) LogToSpan(sp opentracing.Span) {
+	sp.LogFields(
+		otlog.String("query", m.GetQuery()),
+		otlog.String("start", timestamp.Time(m.GetStart()).String()),
+		otlog.String("end", timestamp.Time(m.GetEnd()).String()),
+	)
+}
+
+// Satisfy definitions.Request for Volume
+
+// GetStart returns the start timestamp of the request in milliseconds.
+func (m *VolumeRequest) GetStart() int64 {
+	return int64(m.From)
+}
+
+// GetEnd returns the end timestamp of the request in milliseconds.
+func (m *VolumeRequest) GetEnd() int64 {
+	return int64(m.Through)
+}
+
+// GetStep returns the step of the request in milliseconds.
+func (m *VolumeRequest) GetStep() int64 { return 0 }
+
+// GetQuery returns the query of the request.
+func (m *VolumeRequest) GetQuery() string {
+	return m.Matchers
+}
+
+// GetCachingOptions returns the caching options.
+func (m *VolumeRequest) GetCachingOptions() (res definitions.CachingOptions) { return }
+
+// WithStartEnd clone the current request with different start and end timestamp.
+func (m *VolumeRequest) WithStartEnd(startTime int64, endTime int64) definitions.Request {
+	clone := *m
+	clone.From = model.TimeFromUnixNano(startTime * int64(time.Millisecond))
+	clone.Through = model.TimeFromUnixNano(endTime * int64(time.Millisecond))
+	return &clone
+}
+
+// WithQuery clone the current request with a different query.
+func (m *VolumeRequest) WithQuery(query string) definitions.Request {
+	clone := *m
+	clone.Matchers = query
+	return &clone
+}
+
+// LogToSpan writes information about this request to an OpenTracing span
+func (m *VolumeRequest) LogToSpan(sp opentracing.Span) {
 	sp.LogFields(
 		otlog.String("query", m.GetQuery()),
 		otlog.String("start", timestamp.Time(m.GetStart()).String()),
