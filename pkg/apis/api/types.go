@@ -802,21 +802,32 @@ type ComponentReportRequestTestIdentificationOptions struct {
 }
 
 type ComponentReportRequestVariantOptions struct {
-	ColumnGroupBy         string
-	ColumnGroupByVariants sets.String
-	DBGroupBy             string
-	DBGroupByVariants     sets.String
-	IncludeVariants       []string
-	IncludeVariantsMap    map[string][]string
-	RequestedVariants     map[string]string
+	// TODO: several of these similar looking fields appear to be derived from another,
+	// these data structures probably should not be present on the api type we'll soon be
+	// returning and reading in from a views config file
+	ColumnGroupBy         string              `json:"column_group_by"`
+	ColumnGroupByVariants sets.String         `json:"column_group_by_variants"`
+	DBGroupBy             string              `json:"db_group_by"`
+	DBGroupByVariants     sets.String         `json:"db_group_by_variants"`
+	IncludeVariants       []string            `json:"include_variants"`
+	IncludeVariantsMap    map[string][]string `json:"include_variants_map"`
+	RequestedVariants     map[string]string   `json:"requested_variants"`
 }
 
 type ComponentReportRequestAdvancedOptions struct {
-	MinimumFailure   int
-	Confidence       int
-	PityFactor       int
-	IgnoreMissing    bool
-	IgnoreDisruption bool
+	MinimumFailure   int  `json:"minimum_failure"`
+	Confidence       int  `json:"confidence"`
+	PityFactor       int  `json:"pity_factor"`
+	IgnoreMissing    bool `json:"ignore_missing"`
+	IgnoreDisruption bool `json:"ignore_disruption"`
+}
+
+// ComponentReportView is a server side construct representing a predefined view over the data.
+// Useful for defining the primary view of what we deem required for considering the release ready.
+type ComponentReportView struct {
+	Name            string                                `json:"name"`
+	VariantOptions  ComponentReportRequestVariantOptions  `json:"variant_options"`
+	AdvancedOptions ComponentReportRequestAdvancedOptions `json:"advanced_options"`
 }
 
 type ComponentTestStatus struct {

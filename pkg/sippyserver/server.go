@@ -60,23 +60,25 @@ func NewServer(
 	pinnedDateTime *time.Time,
 	cacheClient cache.Cache,
 	crTimeRoundingFactor time.Duration,
+	componentReadinessViews []apitype.ComponentReportView,
 ) *Server {
 
 	server := &Server{
-		mode:                 mode,
-		listenAddr:           listenAddr,
-		syntheticTestManager: syntheticTestManager,
-		variantManager:       variantManager,
-		sippyNG:              sippyNG,
-		static:               static,
-		db:                   dbClient,
-		bigQueryClient:       bigQueryClient,
-		pinnedDateTime:       pinnedDateTime,
-		prowURL:              prowURL,
-		gcsBucket:            gcsBucket,
-		gcsClient:            gcsClient,
-		cache:                cacheClient,
-		crTimeRoundingFactor: crTimeRoundingFactor,
+		mode:                    mode,
+		listenAddr:              listenAddr,
+		syntheticTestManager:    syntheticTestManager,
+		variantManager:          variantManager,
+		sippyNG:                 sippyNG,
+		static:                  static,
+		db:                      dbClient,
+		bigQueryClient:          bigQueryClient,
+		pinnedDateTime:          pinnedDateTime,
+		prowURL:                 prowURL,
+		gcsBucket:               gcsBucket,
+		gcsClient:               gcsClient,
+		cache:                   cacheClient,
+		crTimeRoundingFactor:    crTimeRoundingFactor,
+		componentReadinessViews: componentReadinessViews,
 	}
 
 	if bigQueryClient != nil {
@@ -99,22 +101,23 @@ var allMatViewsRefreshMetric = promauto.NewHistogram(prometheus.HistogramOpts{
 })
 
 type Server struct {
-	mode                 Mode
-	listenAddr           string
-	syntheticTestManager synthetictests.SyntheticTestManager
-	variantManager       testidentification.VariantManager
-	sippyNG              fs.FS
-	static               fs.FS
-	httpServer           *http.Server
-	db                   *db.DB
-	bigQueryClient       *bigquery.Client
-	pinnedDateTime       *time.Time
-	gcsClient            *storage.Client
-	gcsBucket            string
-	prowURL              string
-	cache                cache.Cache
-	crTimeRoundingFactor time.Duration
-	capabilities         []string
+	mode                    Mode
+	listenAddr              string
+	syntheticTestManager    synthetictests.SyntheticTestManager
+	variantManager          testidentification.VariantManager
+	sippyNG                 fs.FS
+	static                  fs.FS
+	httpServer              *http.Server
+	db                      *db.DB
+	bigQueryClient          *bigquery.Client
+	pinnedDateTime          *time.Time
+	gcsClient               *storage.Client
+	gcsBucket               string
+	prowURL                 string
+	cache                   cache.Cache
+	crTimeRoundingFactor    time.Duration
+	capabilities            []string
+	componentReadinessViews []apitype.ComponentReportView
 }
 
 func (s *Server) GetReportEnd() time.Time {
@@ -651,7 +654,19 @@ func (s *Server) jsonJobVariantsFromBigQuery(w http.ResponseWriter, req *http.Re
 	api.RespondWithJSON(http.StatusOK, w, outputs)
 }
 
+func (s *Server) jsonComponentReadinessViews(w http.ResponseWriter, req *http.Request) {
+	api.RespondWithJSON(http.StatusOK, w, s.componentReadinessViews)
+}
+
 func (s *Server) jsonComponentReportFromBigQuery(w http.ResponseWriter, req *http.Request) {
+	if s.bigQueryClient == nil {
+		err := fmt.Errorf("component report API is only available when google-service-account-credential-file is configured")
+		api.RespondWithJSON(http.StatusBadRequest, w, map[string]interface{}{
+			"code":    http.StatusBadRequest,
+			"message": err.Error(),
+		})
+		return
+	}
 	baseRelease, sampleRelease, testIDOption, variantOption, advancedOption, cacheOption, err := s.parseComponentReportRequest(req)
 	if err != nil {
 		api.RespondWithJSON(http.StatusBadRequest, w, map[string]interface{}{
@@ -687,6 +702,14 @@ func (s *Server) jsonComponentReportFromBigQuery(w http.ResponseWriter, req *htt
 }
 
 func (s *Server) jsonComponentReportTestDetailsFromBigQuery(w http.ResponseWriter, req *http.Request) {
+	if s.bigQueryClient == nil {
+		err := fmt.Errorf("component report API is only available when google-service-account-credential-file is configured")
+		api.RespondWithJSON(http.StatusBadRequest, w, map[string]interface{}{
+			"code":    http.StatusBadRequest,
+			"message": err.Error(),
+		})
+		return
+	}
 	baseRelease, sampleRelease, testIDOption, variantOption, advancedOption, cacheOption, err := s.parseComponentReportRequest(req)
 	if err != nil {
 		api.RespondWithJSON(http.StatusBadRequest, w, map[string]interface{}{
@@ -753,9 +776,20 @@ func (s *Server) parseComponentReportRequest(req *http.Request) (
 	cacheOption cache.RequestOptions,
 	err error) {
 
-	if s.bigQueryClient == nil {
-		err = fmt.Errorf("component report API is only available when google-service-account-credential-file is configured")
-		return
+	// Check if the user specified a view, in which case only some query params can be used.
+	viewRequested := req.URL.Query().Get("view")
+	var view *apitype.ComponentReportView
+	if viewRequested != "" {
+		for i, v := range s.componentReadinessViews {
+			if v.Name == viewRequested {
+				view = &s.componentReadinessViews[i]
+				break
+			}
+		}
+		if view == nil {
+			err = fmt.Errorf("unknown view: %s", viewRequested)
+			return
+		}
 	}
 
 	allJobVariants, errs := api.GetJobVariantsFromBigQuery(s.bigQueryClient, s.gcsBucket)

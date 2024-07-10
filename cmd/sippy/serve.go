@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"net/http"
 	"time"
@@ -25,18 +24,14 @@ import (
 	"github.com/openshift/sippy/pkg/util"
 )
 
-var (
-	defaultCRTimeRoundingFactor = 4 * time.Hour
-	maxCRTimeRoundingFactor     = 12 * time.Hour
-)
-
 type ServerFlags struct {
-	BigQueryFlags    *flags.BigQueryFlags
-	CacheFlags       *flags.CacheFlags
-	DBFlags          *flags.PostgresFlags
-	GoogleCloudFlags *flags.GoogleCloudFlags
-	ModeFlags        *flags.ModeFlags
-	ProwFlags        *flags.ProwFlags
+	BigQueryFlags           *flags.BigQueryFlags
+	CacheFlags              *flags.CacheFlags
+	DBFlags                 *flags.PostgresFlags
+	GoogleCloudFlags        *flags.GoogleCloudFlags
+	ModeFlags               *flags.ModeFlags
+	ComponentReadinessFlags *flags.ComponentReadinessFlags
+	ProwFlags               *flags.ProwFlags
 
 	ListenAddr               string
 	MetricsAddr              string
@@ -46,14 +41,15 @@ type ServerFlags struct {
 
 func NewServerFlags() *ServerFlags {
 	return &ServerFlags{
-		BigQueryFlags:    flags.NewBigQueryFlags(),
-		CacheFlags:       flags.NewCacheFlags(),
-		DBFlags:          flags.NewPostgresDatabaseFlags(),
-		GoogleCloudFlags: flags.NewGoogleCloudFlags(),
-		ModeFlags:        flags.NewModeFlags(),
-		ProwFlags:        flags.NewProwFlags(),
-		ListenAddr:       ":8080",
-		MetricsAddr:      ":2112",
+		BigQueryFlags:           flags.NewBigQueryFlags(),
+		CacheFlags:              flags.NewCacheFlags(),
+		DBFlags:                 flags.NewPostgresDatabaseFlags(),
+		GoogleCloudFlags:        flags.NewGoogleCloudFlags(),
+		ModeFlags:               flags.NewModeFlags(),
+		ComponentReadinessFlags: flags.NewComponentReadinessFlags(),
+		ProwFlags:               flags.NewProwFlags(),
+		ListenAddr:              ":8080",
+		MetricsAddr:             ":2112",
 	}
 }
 
@@ -64,11 +60,10 @@ func (f *ServerFlags) BindFlags(flagSet *pflag.FlagSet) {
 	f.GoogleCloudFlags.BindFlags(flagSet)
 	f.ModeFlags.BindFlags(flagSet)
 	f.ProwFlags.BindFlags(flagSet)
+	f.ComponentReadinessFlags.BindFlags(flagSet)
 
 	flagSet.StringVar(&f.ListenAddr, "listen", f.ListenAddr, "The address to serve analysis reports on (default :8080)")
 	flagSet.StringVar(&f.MetricsAddr, "listen-metrics", f.MetricsAddr, "The address to serve prometheus metrics on (default :2112)")
-	factorUsage := fmt.Sprintf("Set the rounding factor for component readiness release time. The time will be rounded down to the nearest multiple of the factor. Maximum value is %v", maxCRTimeRoundingFactor)
-	flagSet.DurationVar(&f.CRTimeRoundingFactor, "component-readiness-time-rounding-factor", defaultCRTimeRoundingFactor, factorUsage)
 	flagSet.BoolVar(&f.MaintainRegressionTables, "maintain-regression-tables", false, "Enable maintenance of open regressions table in bigquery.")
 }
 
@@ -146,12 +141,20 @@ func NewServeCommand() *cobra.Command {
 				bigQueryClient,
 				pinnedDateTime,
 				cacheClient,
-				f.CRTimeRoundingFactor,
+				f.ComponentReadinessFlags.CRTimeRoundingFactor,
+				f.ComponentReadinessFlags.ParseViewsFile(),
 			)
 
 			if f.MetricsAddr != "" {
 				// Do an immediate metrics update
-				err = metrics.RefreshMetricsDB(dbc, bigQueryClient, f.ProwFlags.URL, f.GoogleCloudFlags.StorageBucket, variantManager, util.GetReportEnd(pinnedDateTime), cache.RequestOptions{CRTimeRoundingFactor: f.CRTimeRoundingFactor}, f.MaintainRegressionTables)
+				err = metrics.RefreshMetricsDB(dbc,
+					bigQueryClient,
+					f.ProwFlags.URL,
+					f.GoogleCloudFlags.StorageBucket,
+					variantManager,
+					util.GetReportEnd(pinnedDateTime),
+					cache.RequestOptions{CRTimeRoundingFactor: f.ComponentReadinessFlags.CRTimeRoundingFactor},
+					f.MaintainRegressionTables)
 				if err != nil {
 					log.WithError(err).Error("error refreshing metrics")
 				}
@@ -164,7 +167,14 @@ func NewServeCommand() *cobra.Command {
 						select {
 						case <-ticker.C:
 							log.Info("tick")
-							err := metrics.RefreshMetricsDB(dbc, bigQueryClient, f.ProwFlags.URL, f.GoogleCloudFlags.StorageBucket, variantManager, util.GetReportEnd(pinnedDateTime), cache.RequestOptions{CRTimeRoundingFactor: f.CRTimeRoundingFactor}, f.MaintainRegressionTables)
+							err := metrics.RefreshMetricsDB(dbc,
+								bigQueryClient,
+								f.ProwFlags.URL,
+								f.GoogleCloudFlags.StorageBucket,
+								variantManager,
+								util.GetReportEnd(pinnedDateTime),
+								cache.RequestOptions{CRTimeRoundingFactor: f.ComponentReadinessFlags.CRTimeRoundingFactor},
+								f.MaintainRegressionTables)
 							if err != nil {
 								log.WithError(err).Error("error refreshing metrics")
 							}
