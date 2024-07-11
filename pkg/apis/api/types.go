@@ -787,14 +787,14 @@ type PullRequestOptions struct {
 }
 
 type ComponentReportRequestReleaseOptions struct {
-	Release            string
-	PullRequestOptions *PullRequestOptions
-	Start              time.Time
-	End                time.Time
+	Release            string              `json:"release"`
+	PullRequestOptions *PullRequestOptions `json:"pull_request"`
+	Start              time.Time           `json:"start,omitempty"`
+	End                time.Time           `json:"start,omitempty"`
 }
 
 type ComponentReportRequestTestIdentificationOptions struct {
-	Component  string
+	Component  string `json:"component"`
 	Capability string
 	// TestID is a unique identification for the test defined in the DB.
 	// It matches the test_id in the bigquery ci_analysis_us.junit table.
@@ -805,12 +805,9 @@ type ComponentReportRequestVariantOptions struct {
 	// TODO: several of these similar looking fields appear to be derived from another,
 	// these data structures probably should not be present on the api type we'll soon be
 	// returning and reading in from a views config file
-	ColumnGroupBy         string              `json:"column_group_by"`
-	ColumnGroupByVariants sets.String         `json:"column_group_by_variants"`
-	DBGroupBy             string              `json:"db_group_by"`
-	DBGroupByVariants     sets.String         `json:"db_group_by_variants"`
-	IncludeVariants       []string            `json:"include_variants"`
-	IncludeVariantsMap    map[string][]string `json:"include_variants_map"`
+	ColumnGroupByVariants sets.String         `json:"column_group_by"`
+	DBGroupByVariants     sets.String         `json:"db_group_by"`
+	IncludeVariantsMap    map[string][]string `json:"include_variants"`
 	RequestedVariants     map[string]string   `json:"requested_variants"`
 }
 
@@ -825,9 +822,11 @@ type ComponentReportRequestAdvancedOptions struct {
 // ComponentReportView is a server side construct representing a predefined view over the data.
 // Useful for defining the primary view of what we deem required for considering the release ready.
 type ComponentReportView struct {
-	Name            string                                `json:"name"`
-	VariantOptions  ComponentReportRequestVariantOptions  `json:"variant_options"`
-	AdvancedOptions ComponentReportRequestAdvancedOptions `json:"advanced_options"`
+	Name          string                                `json:"name"`
+	SampleRelease ComponentReportRequestReleaseOptions  `json:"sample_release"`
+	BaseRelease   ComponentReportRequestReleaseOptions  `json:"base_release"`
+	Variants      ComponentReportRequestVariantOptions  `json:"variants"`
+	Advanced      ComponentReportRequestAdvancedOptions `json:"advanced"`
 }
 
 type ComponentTestStatus struct {

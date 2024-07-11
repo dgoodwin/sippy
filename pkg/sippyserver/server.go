@@ -745,13 +745,13 @@ func (s *Server) jsonComponentReportTestDetailsFromBigQuery(w http.ResponseWrite
 func createVariantOptions(req *http.Request, allJobVariants apitype.JobVariants) (apitype.ComponentReportRequestVariantOptions, error) {
 	var err error
 	variantOption := apitype.ComponentReportRequestVariantOptions{}
-	variantOption.ColumnGroupBy = req.URL.Query().Get("columnGroupBy")
-	variantOption.ColumnGroupByVariants, err = api.VariantsStringToSet(allJobVariants, variantOption.ColumnGroupBy)
+	columnGroupByParam := req.URL.Query().Get("columnGroupBy") // , separated list
+	variantOption.ColumnGroupByVariants, err = api.VariantsStringToSet(allJobVariants, columnGroupByParam)
 	if err != nil {
 		return variantOption, err
 	}
-	variantOption.DBGroupBy = req.URL.Query().Get("dbGroupBy")
-	variantOption.DBGroupByVariants, err = api.VariantsStringToSet(allJobVariants, variantOption.DBGroupBy)
+	dbGroupByParam := req.URL.Query().Get("dbGroupBy") // , separated list
+	variantOption.DBGroupByVariants, err = api.VariantsStringToSet(allJobVariants, dbGroupByParam)
 	if err != nil {
 		return variantOption, err
 	}
@@ -762,8 +762,8 @@ func createVariantOptions(req *http.Request, allJobVariants apitype.JobVariants)
 			variantOption.RequestedVariants[variant] = value
 		}
 	}
-	variantOption.IncludeVariants = req.URL.Query()["includeVariant"]
-	variantOption.IncludeVariantsMap, err = api.IncludeVariantsToMap(allJobVariants, variantOption.IncludeVariants)
+	includeVariantsParam := req.URL.Query()["includeVariant"]
+	variantOption.IncludeVariantsMap, err = api.IncludeVariantsToMap(allJobVariants, includeVariantsParam)
 	return variantOption, err
 }
 
