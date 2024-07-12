@@ -787,10 +787,10 @@ type PullRequestOptions struct {
 }
 
 type ComponentReportRequestReleaseOptions struct {
-	Release            string              `json:"release"`
-	PullRequestOptions *PullRequestOptions `json:"pull_request"`
-	Start              time.Time           `json:"start,omitempty"`
-	End                time.Time           `json:"start,omitempty"`
+	Release            string              `yaml:"release"`
+	PullRequestOptions *PullRequestOptions //`json:"pull_request"`
+	Start              time.Time           //`json:"start,omitempty"`
+	End                time.Time           //`json:"start,omitempty"`
 }
 
 type ComponentReportRequestTestIdentificationOptions struct {
@@ -811,6 +811,8 @@ type ComponentReportRequestVariantOptions struct {
 	RequestedVariants     map[string]string   `json:"requested_variants"`
 }
 
+// baseEndTime=2024-06-27T23:59:59Z&baseRelease=4.16&baseStartTime=2024-05-31T00:00:00Z&columnGroupBy=Platform,Architecture,Network&confidence=95&dbGroupBy=Platform,Architecture,Network,Topology,FeatureSet,Upgrade,Suite,Installer&ignoreDisruption=true&ignoreMissing=false&includeVariant=Architecture:amd64&includeVariant=FeatureSet:default&includeVariant=Installer:ipi&includeVariant=Installer:upi&includeVariant=Owner:eng&includeVariant=Platform:aws&includeVariant=Platform:azure&includeVariant=Platform:gcp&includeVariant=Platform:metal&includeVariant=Platform:vsphere&includeVariant=Topology:ha&minFail=3&pity=5&sampleEndTime=2024-07-11T23:59:59Z&sampleRelease=4.17&sampleStartTime=2024-07-05T00:00:00Z
+
 type ComponentReportRequestAdvancedOptions struct {
 	MinimumFailure   int  `json:"minimum_failure"`
 	Confidence       int  `json:"confidence"`
@@ -822,11 +824,11 @@ type ComponentReportRequestAdvancedOptions struct {
 // ComponentReportView is a server side construct representing a predefined view over the data.
 // Useful for defining the primary view of what we deem required for considering the release ready.
 type ComponentReportView struct {
-	Name          string                                `json:"name"`
-	SampleRelease ComponentReportRequestReleaseOptions  `json:"sample_release"`
-	BaseRelease   ComponentReportRequestReleaseOptions  `json:"base_release"`
-	Variants      ComponentReportRequestVariantOptions  `json:"variants"`
-	Advanced      ComponentReportRequestAdvancedOptions `json:"advanced"`
+	Name          string                               `yaml:"name"`
+	SampleRelease ComponentReportRequestReleaseOptions `yaml:"sample_release"`
+	BaseRelease   ComponentReportRequestReleaseOptions `yaml:"base_release"`
+	//Variants      ComponentReportRequestVariantOptions  `json:"variants"`
+	//Advanced      ComponentReportRequestAdvancedOptions `json:"advanced"`
 }
 
 type ComponentTestStatus struct {

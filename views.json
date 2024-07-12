@@ -1,0 +1,61 @@
+[
+  {
+    "name": "4.17 Main",
+    "base_release": {
+      "release": "4.16"
+    },
+    "sample_release": {
+      "release": "4.17"
+    },
+    "variants": {
+      "column_group_by": [
+        "Platform",
+        "Architecture",
+        "Network"
+      ],
+      "db_group_by": [
+        "Platform",
+        "Architecture",
+        "Network",
+        "Topology",
+        "FeatureSet",
+        "Upgrade",
+        "Suite",
+        "Installer"
+      ],
+      "include_variants": {
+        "Architecture": [
+          "amd64"
+        ],
+        "FeatureSet": [
+          "default"
+        ],
+        "Installer": [
+          "ipi",
+          "upi"
+        ],
+        "Owner": [
+          "eng"
+        ],
+        "Platform": [
+          "aws",
+          "azure",
+          "gcp",
+          "metal",
+          "vsphere"
+        ],
+        "Topology": [
+          "ha"
+        ]
+      }
+    },
+    "advanced": {
+      "minimum_failure": 3,
+      "confidence": 95,
+      "pity_factor": 5,
+      "ignore_missing": false,
+      "ignore_disruption": true
+    }
+  }
+]
+

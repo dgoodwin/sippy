@@ -44,6 +44,7 @@ func (f *ComponentReadinessFlags) ParseViewsFile() []apitype.ComponentReportView
 			log.WithError(err).Fatalf("unable to parse component readiness views from %s", f.ComponentReadinessViewsFile)
 		}
 		log.Infof("parsed views: %+v", crViews)
+		log.Infof("first sample release: %s", crViews[0].SampleRelease.Release)
 	}
 	return crViews
 }
