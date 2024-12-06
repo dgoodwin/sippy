@@ -195,6 +195,7 @@ func (c *Cache) cleanup() {
 				// we just lock on the actual cache data file on the assumption the metadata file is only
 				// ever written when the data file is locked.
 				cacheLock := flock.New(cacheFile + ".lock")
+				lockFile := cacheFile + ".lock"
 
 				cacheLocked, err := cacheLock.TryLock()
 				if err != nil {
@@ -205,7 +206,15 @@ func (c *Cache) cleanup() {
 					logrus.Infof("cache file %s is locked by another process, skipping cleanup.", cacheFile)
 					continue
 				}
-				defer cacheLock.Unlock()
+				defer func() {
+					// Unlock won't delete the lock file itself.
+					cacheLock.Unlock()
+					if err := os.Remove(lockFile); err != nil {
+						logrus.Errorf("failed to delete lock file %s: %v", lockFile, err)
+					} else {
+						logrus.Infof("lock file %s deleted successfully", lockFile)
+					}
+				}()
 
 				logrus.Infof("deleting expired cache file %s and its metadata", cacheFile)
 
