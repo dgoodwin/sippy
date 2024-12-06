@@ -21,12 +21,14 @@ const (
 
 type Cache struct {
 	cacheDir string
+	logger   *logrus.Logger
 }
 
 func NewDiskCache() (*Cache, error) {
 	// Start the cleanup goroutine
 	cache := &Cache{
 		cacheDir: "/tmp/sippycache",
+		logger:   logrus.WithField("cache", "disk"),
 	}
 	go cache.cleanupExpiredCacheFiles()
 	return cache, nil
@@ -97,10 +99,8 @@ func (c Cache) Set(_ context.Context, key string, content []byte, duration time.
 	metadata := cacheKeyFileMetadata{
 		Key:      key,
 		Filename: filename,
-		//set:      before.Format(time.RFC3339),
-		//expire:   before.Add(duration).Format(time.RFC3339),
-		Set:    before,
-		Expire: before, // TODO: add duration
+		Set:      before,
+		Expire:   before.Add(duration),
 	}
 
 	// metadata filename, this will contain details on the original key, set time and expiry time
