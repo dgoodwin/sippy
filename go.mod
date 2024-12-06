@@ -10,6 +10,7 @@ require (
 	github.com/andygrunwald/go-jira v1.14.0
 	github.com/apache/thrift v0.16.0
 	github.com/glycerine/golang-fisher-exact v0.0.0-20230401153517-53168ae38651
+	github.com/gofrs/flock v0.12.1
 	github.com/google/go-github/v45 v45.2.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/go-version v1.6.0
@@ -23,7 +24,7 @@ require (
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.9.0
 	github.com/tcnksm/go-gitconfig v0.1.2
 	github.com/tidwall/gjson v1.9.4
 	golang.org/x/oauth2 v0.23.0
@@ -94,7 +95,7 @@ require (
 	golang.org/x/mod v0.10.0 // indirect
 	golang.org/x/net v0.10.0 // indirect
 	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/sys v0.8.0 // indirect
+	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/text v0.9.0 // indirect
 	golang.org/x/tools v0.9.1 // indirect
 	golang.org/x/xerrors v0.0.0-20220907171357-04be3eba64a2 // indirect
