@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/sirupsen/logrus"
 )
 
@@ -64,7 +66,40 @@ func (c Cache) Set(_ context.Context, key string, content []byte, duration time.
 		logrus.Infof("cache directory %s created", c.cacheDir)
 	}
 
-	err := os.WriteFile(filename, content, 0644)
+	// Create metadata
+	metadata := map[string]interface{}{
+		"key":      key,
+		"filename": filename,
+		"set":      before.Format(time.RFC3339),
+		"expire":   before.Add(duration).Format(time.RFC3339),
+	}
+
+	// metadata filename, this will contain details on the original key, set time and expiry time
+	metadataFilename := fmt.Sprintf("%s-metadata.json", filename[:len(filename)-len(".json")])
+
+	// file lock to prevent multiple goroutines or another sippy replica from conflicting
+	lock := flock.New(filename)
+	locked, err := lock.TryLock()
+	if err != nil {
+		return fmt.Errorf("error attempting to acquire file lock: %v", err)
+	}
+	if !locked {
+		return fmt.Errorf("could not acquire lock on file: %s", filename)
+	}
+	defer lock.Unlock()
+
+	// Write metadata to file
+	metadataContent, err := json.MarshalIndent(metadata, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %v", err)
+	}
+
+	err = os.WriteFile(metadataFilename, metadataContent, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to write metadata file: %v", err)
+	}
+
+	err = os.WriteFile(filename, content, 0644)
 	if err != nil {
 		return fmt.Errorf("failed to write to cache file: %v", err)
 	}
