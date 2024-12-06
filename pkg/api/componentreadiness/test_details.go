@@ -419,6 +419,7 @@ func (c *componentReportGenerator) getJobRunTestStatusFromBigQuery(ctx context.C
 
 	wg.Add(1)
 	go func() {
+
 		defer wg.Done()
 		select {
 		case <-ctx.Done():

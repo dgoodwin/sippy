@@ -4,6 +4,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/openshift/sippy/pkg/cache/disk"
 	log "github.com/sirupsen/logrus"
 
 	"github.com/openshift/sippy/pkg/bigquery"
@@ -12,7 +13,6 @@ import (
 	"github.com/spf13/pflag"
 
 	"github.com/openshift/sippy/pkg/apis/cache"
-	"github.com/openshift/sippy/pkg/cache/redis"
 )
 
 // CacheFlags holds caching configuration information for Sippy.
@@ -67,7 +67,8 @@ func (f *CacheFlags) BindFlags(fs *pflag.FlagSet) {
 
 func (f *CacheFlags) GetCacheClient() (cache.Cache, error) {
 	if f.RedisURL != "" {
-		return redis.NewRedisCache(f.RedisURL)
+		//return redis.NewRedisCache(f.RedisURL)
+		return disk.NewDiskCache()
 	}
 
 	return nil, nil
