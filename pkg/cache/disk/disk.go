@@ -162,6 +162,7 @@ func (c *Cache) cleanupExpiredCacheFiles() {
 // cleanup performs the actual cleanup of expired files. Uses the same file lock to prevent concurrent writes with
 // Set or another sippy replica.
 func (c *Cache) cleanup() {
+	logrus.Info("cleaning up expired cache files")
 	files, err := os.ReadDir(c.cacheDir)
 	if err != nil {
 		logrus.Errorf("failed to read cache directory %s: %v", c.cacheDir, err)
@@ -169,7 +170,7 @@ func (c *Cache) cleanup() {
 	}
 
 	for _, file := range files {
-		if filepath.Ext(file.Name()) == "-metadata.json" {
+		if strings.HasSuffix(file.Name(), "-metadata.json") {
 			// read and parse metadata file to see if we're past our expiration time:
 			metadataFilename := filepath.Join(c.cacheDir, file.Name())
 			metadataContent, err := os.ReadFile(metadataFilename)
@@ -184,8 +185,11 @@ func (c *Cache) cleanup() {
 				continue
 			}
 
+			logrus.Infof("checking cache metadata file for expiry: %s", metadataFilename)
+
 			// if expired, delete cache file and metadata file
 			if time.Now().After(metadata.Expire) {
+				logrus.Infof("cache metadata file %s expired, deleting it and the data file", metadataFilename)
 				cacheFile := metadata.Filename
 
 				// we just lock on the actual cache data file on the assumption the metadata file is only
@@ -215,4 +219,5 @@ func (c *Cache) cleanup() {
 			}
 		}
 	}
+	logrus.Info("cache cleanup complete")
 }
