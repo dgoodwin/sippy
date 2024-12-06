@@ -86,7 +86,6 @@ func GetDataFromCacheOrGenerate[T any](
 				}).Infof("cache hit")
 				var cr T
 				if err := json.Unmarshal(res, &cr); err != nil {
-					log.Warnf("failed to unmarshal cache: %s", res[0:100])
 					return defaultVal, []error{errors.WithMessagef(err, "failed to unmarshal cached item.  cacheKey=%+v", cacheKey)}
 				}
 				return cr, nil

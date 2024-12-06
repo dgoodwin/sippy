@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gofrs/flock"
@@ -32,11 +33,21 @@ func NewDiskCache() (*Cache, error) {
 }
 
 // GenKeyFilename generates a SHA-256 hash of the input string, and uses it to return a filename
-// we can use for this cache key on disk.
+// we can use for this cache key on disk. It will have the same prefix as the cache key when possible
+// for easier debugging.
 func (c Cache) GenKeyFilename(input string) string {
 	hash := sha256.Sum256([]byte(input))
 	hexStr := hex.EncodeToString(hash[:])
-	return fmt.Sprintf("%s/%s.json", c.cacheDir, hexStr)
+	return fmt.Sprintf("%s/%s%s.json", c.cacheDir, ExtractPrefix(input), hexStr)
+}
+
+// ExtractPrefix extracts the prefix from a string before the '~' character.
+// If the key does not contain a prefix we expect, we return empty string.
+func ExtractPrefix(input string) string {
+	if idx := strings.Index(input, "~"); idx != -1 {
+		return fmt.Sprintf("%s-", input[:idx])
+	}
+	return ""
 }
 
 func (c Cache) Get(_ context.Context, key string, _ time.Duration) ([]byte, error) {
@@ -111,15 +122,26 @@ func (c Cache) Set(_ context.Context, key string, content []byte, duration time.
 		return fmt.Errorf("failed to marshal metadata: %v", err)
 	}
 
-	err = os.WriteFile(metadataFilename, metadataContent, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write metadata file: %v", err)
+	// Write cache content to temporary file
+	tempFilename := fmt.Sprintf("%s.tmp", filename)
+	if err := os.WriteFile(tempFilename, content, 0644); err != nil {
+		return fmt.Errorf("failed to write to temporary cache file: %v", err)
 	}
 
-	err = os.WriteFile(filename, content, 0644)
-	if err != nil {
-		return fmt.Errorf("failed to write to cache file: %v", err)
+	tempMetadataFilename := fmt.Sprintf("%s.tmp", metadataFilename)
+	if err := os.WriteFile(tempMetadataFilename, metadataContent, 0644); err != nil {
+		return fmt.Errorf("failed to write temporary metadata file: %v", err)
 	}
+
+	// Atomically rename temporary files to their final names
+	if err := os.Rename(tempFilename, filename); err != nil {
+		return fmt.Errorf("failed to rename temporary cache file: %v", err)
+	}
+
+	if err := os.Rename(tempMetadataFilename, metadataFilename); err != nil {
+		return fmt.Errorf("failed to rename temporary metadata file: %v", err)
+	}
+
 	return nil
 }
 

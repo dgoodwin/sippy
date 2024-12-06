@@ -20,7 +20,7 @@ func GetDisruptionVsPrevGAReportFromBigQuery(ctx context.Context, client *bqcach
 		ViewName: "BackendDisruptionPercentilesDeltaCurrentVsPrevGA",
 	}
 
-	return GetDataFromCacheOrGenerate[apitype.DisruptionReport](ctx, client.Cache, cache.RequestOptions{}, GetPrefixedCacheKey("", generator), generator.GenerateReport, apitype.DisruptionReport{})
+	return GetDataFromCacheOrGenerate[apitype.DisruptionReport](ctx, client.Cache, cache.RequestOptions{}, GetPrefixedCacheKey("DisruptionReport", generator), generator.GenerateReport, apitype.DisruptionReport{})
 }
 
 func GetDisruptionVsTwoWeeksAgoReportFromBigQuery(ctx context.Context, client *bqcachedclient.Client) (apitype.DisruptionReport, []error) {
@@ -29,7 +29,7 @@ func GetDisruptionVsTwoWeeksAgoReportFromBigQuery(ctx context.Context, client *b
 		ViewName: "BackendDisruptionPercentilesDeltaCurrentVs14DaysAgo",
 	}
 
-	return GetDataFromCacheOrGenerate[apitype.DisruptionReport](ctx, client.Cache, cache.RequestOptions{}, GetPrefixedCacheKey("", generator), generator.GenerateReport, apitype.DisruptionReport{})
+	return GetDataFromCacheOrGenerate[apitype.DisruptionReport](ctx, client.Cache, cache.RequestOptions{}, GetPrefixedCacheKey("DisruptionRepor", generator), generator.GenerateReport, apitype.DisruptionReport{})
 }
 
 type disruptionReportGenerator struct {
