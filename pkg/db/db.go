@@ -150,6 +150,10 @@ func (d *DB) UpdateSchema(reportEnd *time.Time) error {
 		return err
 	}
 
+	if err := d.DB.AutoMigrate(&models.TriagedJobRun{}); err != nil {
+		return err
+	}
+
 	if err := populateTestSuitesInDB(d.DB); err != nil {
 		return err
 	}

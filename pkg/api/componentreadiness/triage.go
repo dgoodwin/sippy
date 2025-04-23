@@ -14,7 +14,7 @@ import (
 
 func GetTriage(dbc *db.DB, id int) (models.Triage, error) {
 	existingTriage := models.Triage{}
-	res := dbc.DB.Preload("Bug").Preload("Regressions").First(&existingTriage, id)
+	res := dbc.DB.Preload("Bug").Preload("Regressions").Preload("JobRuns").First(&existingTriage, id)
 	if res.Error != nil {
 		log.WithError(res.Error).Errorf("error looking up existing triage record: %d", id)
 	}

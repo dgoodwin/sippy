@@ -3,6 +3,7 @@ package triage
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/lib/pq"
 	"github.com/openshift/sippy/pkg/api/componentreadiness"
@@ -26,6 +27,7 @@ var view = componentreport.View{
 
 func cleanupAllTriages(dbc *db.DB) {
 	// Delete all triage and test regressions in the e2e postgres db.
+	dbc.DB.Exec("DELETE FROM triaged_job_runs WHERE 1=1")
 	dbc.DB.Exec("DELETE FROM triage_regressions WHERE 1=1")
 	res := dbc.DB.Where("1 = 1").Delete(&models.Triage{})
 	if res.Error != nil {
@@ -124,6 +126,45 @@ func Test_TriageAPI(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, 0, len(triageResponse2.Regressions))
 	})
+	t.Run("update to add more job runs", func(t *testing.T) {
+		defer cleanupAllTriages(dbc)
+		triageResponse := createAndValidateTriageRecord(t, jiraBug.URL, testRegression1)
+
+		var triageResponse2 models.Triage
+		triageResponse.JobRuns = append(triageResponse.JobRuns, models.TriagedJobRun{
+			URL:        "http://prow/jobrun3",
+			TestID:     testRegression1.TestID,
+			Variants:   testRegression1.Variants,
+			StartedAt:  time.Now().Add(-8 * time.Hour),
+			FinishedAt: time.Now().Add(-4 * time.Hour),
+		})
+		err := util.SippyPut(fmt.Sprintf("/api/component_readiness/triages/%d", triageResponse.ID), &triageResponse, &triageResponse2)
+		require.NoError(t, err)
+		assert.Equal(t, 3, len(triageResponse2.JobRuns))
+		assert.Equal(t, triageResponse.CreatedAt, triageResponse2.CreatedAt)
+		assert.NotEqual(t, triageResponse.UpdatedAt, triageResponse2.UpdatedAt)
+	})
+	t.Run("update to replace all job runs", func(t *testing.T) {
+		defer cleanupAllTriages(dbc)
+		triageResponse := createAndValidateTriageRecord(t, jiraBug.URL, testRegression1)
+
+		var triageResponse2 models.Triage
+		triageResponse.JobRuns = []models.TriagedJobRun{
+			{
+				URL:        "http://prow/jobrun3",
+				TestID:     testRegression1.TestID,
+				Variants:   testRegression1.Variants,
+				StartedAt:  time.Now().Add(-8 * time.Hour),
+				FinishedAt: time.Now().Add(-4 * time.Hour),
+			},
+		}
+		err := util.SippyPut(fmt.Sprintf("/api/component_readiness/triages/%d", triageResponse.ID), &triageResponse, &triageResponse2)
+		require.NoError(t, err)
+		assert.Equal(t, 1, len(triageResponse2.JobRuns))
+		assert.Equal(t, "http://prow/jobrun3", triageResponse2.JobRuns[0].URL)
+		assert.Equal(t, triageResponse.CreatedAt, triageResponse2.CreatedAt)
+		assert.NotEqual(t, triageResponse.UpdatedAt, triageResponse2.UpdatedAt)
+	})
 	t.Run("update fails if resource has no ID", func(t *testing.T) {
 		defer cleanupAllTriages(dbc)
 		triageResponse := createAndValidateTriageRecord(t, jiraBug.URL, testRegression1)
@@ -161,6 +202,22 @@ func createAndValidateTriageRecord(t *testing.T, bugURL string, testRegression1 
 				ID: testRegression1.ID, // test just setting the ID to link up
 			},
 		},
+		JobRuns: []models.TriagedJobRun{
+			{
+				URL:        "http://prow/jobrun0912831903",
+				TestID:     testRegression1.TestID,
+				Variants:   testRegression1.Variants,
+				StartedAt:  time.Now().Add(-8 * time.Hour),
+				FinishedAt: time.Now().Add(-4 * time.Hour),
+			},
+			{
+				URL:        "http://prow/jobrun09128398123",
+				TestID:     testRegression1.TestID,
+				Variants:   testRegression1.Variants,
+				StartedAt:  time.Now().Add(-8 * time.Hour),
+				FinishedAt: time.Now().Add(-4 * time.Hour),
+			},
+		},
 	}
 
 	var triageResponse models.Triage
@@ -168,6 +225,8 @@ func createAndValidateTriageRecord(t *testing.T, bugURL string, testRegression1 
 	require.NoError(t, err)
 	assert.True(t, triageResponse.ID > 0)
 	assert.Equal(t, 1, len(triageResponse.Regressions))
+
+	assert.Equal(t, 2, len(triageResponse.JobRuns))
 
 	// Use the API get to ensure we get a clean object
 	var lookupTriage models.Triage

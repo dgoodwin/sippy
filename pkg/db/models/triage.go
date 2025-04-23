@@ -40,6 +40,27 @@ type Triage struct {
 	// any regression, but this would be fine...
 	// If we could establish this, it may mean less data duplication.
 	Regressions []TestRegression `json:"regressions" gorm:"constraint:OnDelete:CASCADE;many2many:triage_regressions;"`
+
+	JobRuns []TriagedJobRun `json:"job_runs" gorm:"constraint:OnDelete:CASCADE;"`
+}
+
+// TriagedJobRun represents a specific job run attributed to a specific triaged regression.
+// We copy the test ID and variants as this will be used to query the number of runs we should decrement for a
+// specific test ID and variants combo, within the report timespan.
+// This does not link directly to ProwJobRun model, as we are not sure we will keep those in sippy's db long term,
+// and the set could mismatch vs what is in BigQuery needing triage.
+type TriagedJobRun struct {
+	ID        uint      `json:"id" gorm:"primarykey"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	// TriageID defines the link to the triage record representing the jira we believe caused this test to fail.
+	TriageID   uint           `json:"triage_id" gorm:"not null"`
+	URL        string         `json:"url" gorm:"not null"`
+	TestID     string         `json:"test_id" gorm:"not null"`
+	Variants   pq.StringArray `json:"variants" gorm:"not null;type:text[]"`
+	StartedAt  time.Time      `json:"started_at" gorm:"not null"`
+	FinishedAt time.Time      `json:"finished_at" gorm:"not null"`
+	// TODO: record the matcher conditions, and possibly the context around what matched, once this work is in.
 }
 
 type TriageType string
