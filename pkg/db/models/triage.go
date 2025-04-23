@@ -54,10 +54,10 @@ type TriagedJobRun struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	// TriageID defines the link to the triage record representing the jira we believe caused this test to fail.
-	TriageID   uint           `json:"triage_id" gorm:"not null"`
-	URL        string         `json:"url" gorm:"not null"`
-	TestID     string         `json:"test_id" gorm:"not null"`
-	Variants   pq.StringArray `json:"variants" gorm:"not null;type:text[]"`
+	TriageID   uint           `json:"triage_id" gorm:"not null;uniqueIndex:uidx_triage_url_test_variants"`
+	URL        string         `json:"url" gorm:"not null;uniqueIndex:uidx_triage_url_test_variants"`
+	TestID     string         `json:"test_id" gorm:"not null;uniqueIndex:uidx_triage_url_test_variants"`
+	Variants   pq.StringArray `json:"variants" gorm:"type:text[];not null;uniqueIndex:uidx_triage_url_test_variants"`
 	StartedAt  time.Time      `json:"started_at" gorm:"not null"`
 	FinishedAt time.Time      `json:"finished_at" gorm:"not null"`
 	// TODO: record the matcher conditions, and possibly the context around what matched, once this work is in.

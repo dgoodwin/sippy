@@ -144,7 +144,7 @@ func Test_TriageAPI(t *testing.T) {
 		assert.Equal(t, triageResponse.CreatedAt, triageResponse2.CreatedAt)
 		assert.NotEqual(t, triageResponse.UpdatedAt, triageResponse2.UpdatedAt)
 	})
-	t.Run("update to replace all job runs", func(t *testing.T) {
+	t.Run("update fails if job run is duplicated", func(t *testing.T) {
 		defer cleanupAllTriages(dbc)
 		triageResponse := createAndValidateTriageRecord(t, jiraBug.URL, testRegression1)
 
@@ -157,13 +157,17 @@ func Test_TriageAPI(t *testing.T) {
 				StartedAt:  time.Now().Add(-8 * time.Hour),
 				FinishedAt: time.Now().Add(-4 * time.Hour),
 			},
+			// same job run, test, and variants
+			{
+				URL:        "http://prow/jobrun3",
+				TestID:     testRegression1.TestID,
+				Variants:   testRegression1.Variants,
+				StartedAt:  time.Now().Add(-8 * time.Hour),
+				FinishedAt: time.Now().Add(-4 * time.Hour),
+			},
 		}
 		err := util.SippyPut(fmt.Sprintf("/api/component_readiness/triages/%d", triageResponse.ID), &triageResponse, &triageResponse2)
-		require.NoError(t, err)
-		assert.Equal(t, 1, len(triageResponse2.JobRuns))
-		assert.Equal(t, "http://prow/jobrun3", triageResponse2.JobRuns[0].URL)
-		assert.Equal(t, triageResponse.CreatedAt, triageResponse2.CreatedAt)
-		assert.NotEqual(t, triageResponse.UpdatedAt, triageResponse2.UpdatedAt)
+		require.Error(t, err, "server did not reject a duplicated job run")
 	})
 	t.Run("update fails if resource has no ID", func(t *testing.T) {
 		defer cleanupAllTriages(dbc)
