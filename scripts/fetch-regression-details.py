@@ -69,7 +69,8 @@ def main():
             'regression_id': regression_id,
             'regression_data': regression_data,
             'test_details_data': None,
-            'failed_sample_job_runs': []
+            'failed_sample_job_runs': [],
+            'job_run_test_failures': {}
         }
 
         # Check if test_details link exists
@@ -171,11 +172,35 @@ def main():
                 # Store failed sample job runs in results
                 results['failed_sample_job_runs'] = failed_sample_job_runs
                 
-                # Display failed sample job runs
+                # Display failed sample job runs with test failures
                 if failed_sample_job_runs:
                     print(f"\nFailed Sample Job Runs ({len(failed_sample_job_runs)} total):")
                     for job_run_id in failed_sample_job_runs:
                         print(f"  {job_run_id}")
+                        
+                        # Fetch test failures for this job run
+                        try:
+                            failure_url = f"https://sippy.dptools.openshift.org/api/job/run/summary?prow_job_run_id={job_run_id}"
+                            with urllib.request.urlopen(failure_url) as response:
+                                failure_data = json.loads(response.read())
+                            
+                            # Extract and display test failures
+                            if 'testFailures' in failure_data and failure_data['testFailures']:
+                                test_failures = failure_data['testFailures']
+                                results['job_run_test_failures'][job_run_id] = list(test_failures.keys())
+                                print(f"    Test Failures ({len(test_failures)} tests):")
+                                for test_name in test_failures.keys():
+                                    print(f"      - {test_name}")
+                            else:
+                                results['job_run_test_failures'][job_run_id] = []
+                                print(f"    Test Failures: None found")
+                                
+                        except urllib.error.HTTPError as e:
+                            results['job_run_test_failures'][job_run_id] = []
+                            print(f"    Error fetching test failures: HTTP {e.code} - {e.reason}")
+                        except Exception as e:
+                            results['job_run_test_failures'][job_run_id] = []
+                            print(f"    Error fetching test failures: {e}")
                 else:
                     print(f"\nFailed Sample Job Runs: None")
             else:
