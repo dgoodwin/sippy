@@ -11,3 +11,4 @@ Follow these steps:
   - If the failed job runs appear to mostly have mass test failures (more than 10), this could indicate the test is not at fault and we're experiencing catastrophic cluster failure which is affecting this test.
   - If the test fails the job by itself most of the time, this indicates a more legitimate problem just with this test.
   - If the sample states show failures but few or no flakes, and the base stats show mostly flakes but few or no failures, inform the user this test may have had it's ability to flake removed and this is why it is now showing up. Compare the base flake rate to the sample fail rate so the user can see if we are now failing at a similar rate we used to flake. 
+- Check if the test failure output shows a consistent pattern and if so, print it for the user.

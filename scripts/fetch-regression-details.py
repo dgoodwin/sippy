@@ -202,8 +202,9 @@ def main():
                                 test_failures = failure_data['testFailures']
                                 results['job_run_test_failures'][job_run_id] = list(test_failures.keys())
                                 print(f"    Test Failures ({len(test_failures)} tests):")
-                                for test_name in test_failures.keys():
+                                for test_name, test_output in test_failures.items():
                                     print(f"      - {test_name}")
+                                    print(f"        Output: {test_output}")
                             else:
                                 results['job_run_test_failures'][job_run_id] = []
                                 print(f"    Test Failures: None found")
