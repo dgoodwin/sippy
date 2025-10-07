@@ -109,7 +109,7 @@ def main():
         
         if 'opened' in regression_data:
             print(f"Opened: {regression_data['opened']}")
-        
+            
         # Always print closed status - show time if valid, otherwise show "none"
         if ('closed' in regression_data and 
             isinstance(regression_data['closed'], dict) and 
@@ -121,6 +121,19 @@ def main():
         
         if 'max_failure' in regression_data:
             print(f"Max Failure: {regression_data['max_failure']}")
+        
+        # Display triage information if available
+        if 'triages' in regression_data and regression_data['triages']:
+            triages = regression_data['triages']
+            print(f"\nRegression is triaged to {len(triages)} bug(s):")
+            for triage in triages:
+                triage_id = triage.get('id', 'N/A')
+                bug_url = triage.get('url', 'N/A')
+                description = triage.get('description', 'N/A')
+                print(f"  Triage ID {triage_id}: {bug_url}")
+                print(f"    Description: {description}")
+        else:
+            print(f"\nThis regression has not yet been triaged to a specific bug")
         
         if results['test_details_data']:
             print(f"Test details fetched: Yes")
